@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --port 5000 --host",
     "build": "tsc && vite build",
-    "preview": "vite preview --port 5000 --host"
+    "preview": "vite preview --port 5000 --host",
+    "deploy:build": "pnpm install && pnpm run build"
   },
   "dependencies": {
     "three": "^0.170.0"

@@ -181,6 +181,19 @@ export class Player {
     this.canShoot = canShoot;
   }
 
+  // 重置按键状态（暂停/恢复时调用）
+  public resetKeys(): void {
+    this.keys.forward = false;
+    this.keys.backward = false;
+    this.keys.left = false;
+    this.keys.right = false;
+    this.keys.jump = false;
+    this.keys.sprint = false;
+    this.state.isSprinting = false;
+    this.isMoving = false;
+    this.weapon.stopShooting();
+  }
+
   public takeDamage(damage: number): void {
     if (this.isDead) return;
     

@@ -55,6 +55,10 @@ export class Game {
   // 爆头统计
   private headshotCount: number = 0;
   
+  // 命中统计
+  private totalShots: number = 0;
+  private totalHits: number = 0;
+  
   // 射线检测
   private raycaster: THREE.Raycaster;
 
@@ -148,8 +152,16 @@ export class Game {
           this.startNewRound();
         }
       } else {
+        // 如果作弊菜单打开，不显示暂停菜单
+        if (this.player.isCheatMenuOpen()) {
+          this.isPlaying = false;
+          this.player.resetKeys();
+          return;
+        }
         this.isPlaying = false;
-        instructions.style.display = 'block';
+        // 重置按键状态，防止暂停后继续移动
+        this.player.resetKeys();
+        this.showPauseMenu();
       }
     });
 
@@ -186,6 +198,8 @@ export class Game {
     this.roundKills = 0;
     this.comboKills = 0;
     this.headshotCount = 0;
+    this.totalShots = 0;
+    this.totalHits = 0;
     this.roundConfig = this.getRoundConfig(this.currentRound);
     
     // 重置特效管理器
@@ -408,6 +422,9 @@ export class Game {
       return;
     }
     
+    // 统计射击次数
+    this.totalShots++;
+    
     // 锁头功能：射击时自动瞄准最近敌人
     if (this.player.isAimbotEnabled()) {
       this.applyAimbotInstant();
@@ -438,6 +455,7 @@ export class Game {
           const dot = direction.dot(toEnemy);
           
           if (dot > 0.5) { // 大约120度范围
+            this.totalHits++;
             const killed = enemy.takeDamage(stats.damage);
             // 播放敌人受击音效
             this.audioManager.playEnemyHit();
@@ -463,6 +481,7 @@ export class Game {
         const enemy = hitMesh.userData.enemy as Enemy;
         
         if (enemy && enemy.isEnemyAlive()) {
+          this.totalHits++;
           // 爆头检测：命中点在敌人上半部分
           const hitPoint = intersects[0].point;
           const enemyPos = enemy.getPosition();
@@ -498,7 +517,7 @@ export class Game {
     this.spawnLoot(enemyPosition);
     
     // 播放音效
-    this.audioManager.playKillSound(this.comboKills);
+    this.audioManager.playKillSound(this.comboKills, isHeadshot);
     
     // 显示连杀特效
     this.effectsManager.showKillStreak(this.comboKills);
@@ -674,6 +693,25 @@ export class Game {
       document.body.appendChild(killsElement);
     }
     killsElement.textContent = `总击杀: ${this.killCount}`;
+    
+    // 更新命中率统计
+    let accuracyElement = document.getElementById('accuracy-stats');
+    if (!accuracyElement) {
+      accuracyElement = document.createElement('div');
+      accuracyElement.id = 'accuracy-stats';
+      accuracyElement.style.cssText = `
+        position: fixed;
+        top: 90px;
+        left: 20px;
+        font-size: 18px;
+        color: white;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        z-index: 100;
+      `;
+      document.body.appendChild(accuracyElement);
+    }
+    const accuracy = this.totalShots > 0 ? Math.round((this.totalHits / this.totalShots) * 100) : 0;
+    accuracyElement.textContent = `命中率: ${accuracy}% (${this.totalHits}/${this.totalShots})`;
     
     // 更新武器信息
     const weaponInfoElement = document.getElementById('weapon-info');
@@ -955,6 +993,244 @@ export class Game {
     const espContainer = document.getElementById('esp-container');
     if (espContainer) {
       espContainer.style.display = 'none';
+    }
+  }
+
+  // 显示暂停菜单
+  private showPauseMenu(): void {
+    let pauseMenu = document.getElementById('pause-menu');
+    if (!pauseMenu) {
+      pauseMenu = document.createElement('div');
+      pauseMenu.id = 'pause-menu';
+      pauseMenu.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 24px;
+        text-align: center;
+        z-index: 200;
+        background: rgba(0, 0, 0, 0.9);
+        padding: 40px;
+        border-radius: 20px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        min-width: 300px;
+      `;
+      pauseMenu.innerHTML = `
+        <h2 style="color: #ff6600; margin-bottom: 30px;">游戏暂停</h2>
+        <button id="resume-btn" style="
+          display: block;
+          width: 100%;
+          padding: 15px 30px;
+          margin-bottom: 15px;
+          font-size: 18px;
+          color: white;
+          background: linear-gradient(135deg, #ff6600, #ff9933);
+          border: none;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: transform 0.2s, box-shadow 0.2s;
+        ">继续游戏</button>
+        <button id="end-game-btn" style="
+          display: block;
+          width: 100%;
+          padding: 15px 30px;
+          font-size: 18px;
+          color: white;
+          background: linear-gradient(135deg, #cc0000, #ff3333);
+          border: none;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: transform 0.2s, box-shadow 0.2s;
+        ">结束并结算</button>
+        <p style="margin-top: 20px; color: #888; font-size: 14px;">点击"继续游戏"或按 ESC 返回</p>
+      `;
+      document.body.appendChild(pauseMenu);
+      
+      // 继续游戏按钮
+      document.getElementById('resume-btn')?.addEventListener('click', () => {
+        this.hidePauseMenu();
+        document.body.requestPointerLock();
+      });
+      
+      // 结束游戏按钮
+      document.getElementById('end-game-btn')?.addEventListener('click', () => {
+        this.showConfirmDialog();
+      });
+    }
+    pauseMenu.style.display = 'block';
+  }
+
+  private hidePauseMenu(): void {
+    const pauseMenu = document.getElementById('pause-menu');
+    if (pauseMenu) {
+      pauseMenu.style.display = 'none';
+    }
+  }
+
+  // 显示确认对话框
+  private showConfirmDialog(): void {
+    let confirmDialog = document.getElementById('confirm-dialog');
+    if (!confirmDialog) {
+      confirmDialog = document.createElement('div');
+      confirmDialog.id = 'confirm-dialog';
+      confirmDialog.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 20px;
+        text-align: center;
+        z-index: 250;
+        background: rgba(0, 0, 0, 0.95);
+        padding: 30px 40px;
+        border-radius: 15px;
+        border: 2px solid #ff6600;
+        min-width: 280px;
+      `;
+      confirmDialog.innerHTML = `
+        <h3 style="margin-bottom: 20px; color: #ff6600;">确认结束游戏？</h3>
+        <p style="margin-bottom: 25px; color: #aaa; font-size: 16px;">当前进度将会结算</p>
+        <div style="display: flex; gap: 15px; justify-content: center;">
+          <button id="confirm-yes" style="
+            padding: 12px 30px;
+            font-size: 16px;
+            color: white;
+            background: linear-gradient(135deg, #cc0000, #ff3333);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+          ">确定</button>
+          <button id="confirm-no" style="
+            padding: 12px 30px;
+            font-size: 16px;
+            color: white;
+            background: linear-gradient(135deg, #444, #666);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+          ">取消</button>
+        </div>
+      `;
+      document.body.appendChild(confirmDialog);
+      
+      // 确定按钮
+      document.getElementById('confirm-yes')?.addEventListener('click', () => {
+        this.hideConfirmDialog();
+        this.hidePauseMenu();
+        this.showGameEndScreen();
+      });
+      
+      // 取消按钮
+      document.getElementById('confirm-no')?.addEventListener('click', () => {
+        this.hideConfirmDialog();
+      });
+    }
+    confirmDialog.style.display = 'block';
+  }
+
+  private hideConfirmDialog(): void {
+    const confirmDialog = document.getElementById('confirm-dialog');
+    if (confirmDialog) {
+      confirmDialog.style.display = 'none';
+    }
+  }
+
+  // 显示游戏结束界面
+  private showGameEndScreen(): void {
+    let endScreen = document.getElementById('game-end-screen');
+    if (!endScreen) {
+      endScreen = document.createElement('div');
+      endScreen.id = 'game-end-screen';
+      endScreen.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, rgba(0,0,0,0.95), rgba(20,20,40,0.95));
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 300;
+        color: white;
+      `;
+      document.body.appendChild(endScreen);
+    }
+    
+    // 计算统计数据
+    const accuracy = this.totalShots > 0 ? ((this.totalHits / this.totalShots) * 100).toFixed(1) : '0.0';
+    const headshotRate = this.killCount > 0 ? ((this.headshotCount / this.killCount) * 100).toFixed(1) : '0.0';
+    
+    endScreen.innerHTML = `
+      <h1 style="font-size: 64px; color: #ff6600; margin-bottom: 10px; text-shadow: 0 0 20px rgba(255,102,0,0.5);">游戏结束</h1>
+      <p style="font-size: 24px; color: #888; margin-bottom: 40px;">Game Over</p>
+      
+      <div style="background: rgba(255,255,255,0.05); border-radius: 20px; padding: 30px 50px; margin-bottom: 40px; border: 1px solid rgba(255,255,255,0.1);">
+        <h2 style="text-align: center; margin-bottom: 30px; color: #ff9933; font-size: 28px;">📊 战绩统计</h2>
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px 40px; font-size: 20px;">
+          <div style="text-align: right; color: #aaa;">到达回合:</div>
+          <div style="color: #fff; font-weight: bold;">第 ${this.currentRound} 轮</div>
+          
+          <div style="text-align: right; color: #aaa;">总击杀数:</div>
+          <div style="color: #ff6600; font-weight: bold;">${this.killCount}</div>
+          
+          <div style="text-align: right; color: #aaa;">爆头数:</div>
+          <div style="color: #ff3333; font-weight: bold;">${this.headshotCount}</div>
+          
+          <div style="text-align: right; color: #aaa;">爆头率:</div>
+          <div style="color: #ff9933; font-weight: bold;">${headshotRate}%</div>
+          
+          <div style="text-align: right; color: #aaa;">命中率:</div>
+          <div style="color: #00ff00; font-weight: bold;">${accuracy}%</div>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 20px;">
+        <button id="restart-game-btn" style="
+          padding: 18px 50px;
+          font-size: 20px;
+          color: white;
+          background: linear-gradient(135deg, #ff6600, #ff9933);
+          border: none;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: transform 0.2s;
+        ">重新开始</button>
+        <button id="exit-game-btn" style="
+          padding: 18px 50px;
+          font-size: 20px;
+          color: white;
+          background: linear-gradient(135deg, #444, #666);
+          border: none;
+          border-radius: 10px;
+          cursor: pointer;
+          transition: transform 0.2s;
+        ">返回主页</button>
+      </div>
+    `;
+    endScreen.style.display = 'flex';
+    
+    // 重新开始按钮
+    document.getElementById('restart-game-btn')?.addEventListener('click', () => {
+      this.hideGameEndScreen();
+      this.restartGame();
+      document.body.requestPointerLock();
+    });
+    
+    // 返回主页按钮
+    document.getElementById('exit-game-btn')?.addEventListener('click', () => {
+      location.reload();
+    });
+  }
+
+  private hideGameEndScreen(): void {
+    const endScreen = document.getElementById('game-end-screen');
+    if (endScreen) {
+      endScreen.style.display = 'none';
     }
   }
 

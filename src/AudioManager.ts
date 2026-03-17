@@ -19,6 +19,12 @@ export class AudioManager {
     this.loadSound('hexakill', '/assets/六杀.m4a');
     this.loadSound('septimakill', '/assets/七杀及以上.m4a');
     
+    // 加载备用击杀音效（随机播放）
+    this.loadSound('headshotkill', '/assets/爆头击杀.m4a');
+    this.loadSound('doublekill_2', '/assets/双杀_2.m4a');
+    this.loadSound('triplekill_2', '/assets/三杀_2.m4a');
+    this.loadSound('septimakill_2', '/assets/七杀及以上_2.m4a');
+    
     // 加载通关音效
     this.loadSound('victory', '/assets/通关成功.m4a');
     
@@ -55,20 +61,36 @@ export class AudioManager {
     this.playSound('gunshot', 0.5);
   }
 
-  public playKillSound(killCount: number): void {
-    const soundMap: { [key: number]: string } = {
-      1: 'kill',
-      2: 'doublekill',
-      3: 'triplekill',
-      4: 'quadrakill',
-      5: 'pentakill',
-      6: 'hexakill'
-    };
-
-    if (killCount >= 7) {
-      this.playSound('septimakill', 0.7);
-    } else if (soundMap[killCount]) {
-      this.playSound(soundMap[killCount], 0.7);
+  public playKillSound(killCount: number, isHeadshot: boolean = false): void {
+    // 单杀时，根据是否爆头选择音效
+    if (killCount === 1) {
+      if (isHeadshot) {
+        this.playSound('headshotkill', 0.7);
+      } else {
+        this.playSound('kill', 0.7);
+      }
+      return;
+    }
+    
+    // 连杀音效（不管是否爆头都正常播放）
+    if (killCount === 2) {
+      // 双杀：随机选择两个音效之一
+      const soundName = Math.random() < 0.5 ? 'doublekill' : 'doublekill_2';
+      this.playSound(soundName, 0.7);
+    } else if (killCount === 3) {
+      // 三杀：随机选择两个音效之一
+      const soundName = Math.random() < 0.5 ? 'triplekill' : 'triplekill_2';
+      this.playSound(soundName, 0.7);
+    } else if (killCount === 4) {
+      this.playSound('quadrakill', 0.7);
+    } else if (killCount === 5) {
+      this.playSound('pentakill', 0.7);
+    } else if (killCount === 6) {
+      this.playSound('hexakill', 0.7);
+    } else if (killCount >= 7) {
+      // 七杀及以上：随机选择两个音效之一
+      const soundName = Math.random() < 0.5 ? 'septimakill' : 'septimakill_2';
+      this.playSound(soundName, 0.7);
     }
   }
 
