@@ -29,10 +29,10 @@ export class AudioManager {
     this.loadSound('victory', '/assets/通关成功.m4a');
     
     // 加载倒计时音效
-    this.loadSound('countdown', '/assets/开始时倒数.mp4');
+    this.loadSound('countdown', '/assets/开始时倒数.m4a');
     
     // 加载脚步声
-    this.loadSound('footstep', '/assets/脚步声-皮鞋走路_爱给网_aigei_com.mp4');
+    this.loadSound('footstep', '/assets/脚步声.m4a');
     
     // 加载受击音效
     this.loadSound('playerHit1', '/assets/我的受击音效1.m4a');
