@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Programmer Akai's FPS Game</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      body {
+        overflow: hidden;
+        background: #000;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+      
+      #game-container {
+        width: 100vw;
+        height: 100vh;
+        position: relative;
+      }
+      
+      #crosshair {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: 100;
+      }
+      
+      #crosshair::before,
+      #crosshair::after {
+        content: '';
+        position: absolute;
+        background: rgba(255, 255, 255, 0.9);
+      }
+      
+      #crosshair::before {
+        width: 20px;
+        height: 2px;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+      
+      #crosshair::after {
+        width: 2px;
+        height: 20px;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+      
+      #hud {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        color: white;
+        font-size: 18px;
+        z-index: 100;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+      }
+      
+      #health-bar {
+        width: 200px;
+        height: 20px;
+        background: rgba(0, 0, 0, 0.5);
+        border: 2px solid white;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 10px;
+      }
+      
+      #health-fill {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, #ff0000, #ff6600);
+        transition: width 0.3s;
+      }
+      
+      #ammo {
+        font-size: 24px;
+        font-weight: bold;
+      }
+      
+      #instructions {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 24px;
+        text-align: center;
+        z-index: 200;
+        background: rgba(0, 0, 0, 0.85);
+        padding: 40px;
+        border-radius: 20px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        max-width: 550px;
+      }
+      
+      #instructions h1 {
+        margin-bottom: 20px;
+        font-size: 36px;
+        color: #ff6600;
+      }
+      
+      #instructions p {
+        margin: 10px 0;
+        font-size: 16px;
+      }
+      
+      #instructions .controls {
+        margin-top: 20px;
+        text-align: left;
+        padding-left: 20px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 5px;
+      }
+      
+      #instructions .controls p {
+        font-size: 14px;
+        color: #aaa;
+      }
+      
+      #minimap {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        width: 180px;
+        height: 180px;
+        background: rgba(0, 0, 0, 0.7);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 10px;
+        z-index: 100;
+      }
+      
+      #minimap-canvas {
+        width: 100%;
+        height: 100%;
+      }
+      
+      #weapon-info {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        color: white;
+        font-size: 16px;
+        text-align: right;
+        z-index: 100;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+      }
+      
+      #weapon-info .weapon-name {
+        font-size: 24px;
+        font-weight: bold;
+        color: #ff6600;
+        margin-bottom: 5px;
+      }
+      
+      #weapon-slots {
+        position: fixed;
+        bottom: 100px;
+        right: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        z-index: 100;
+      }
+      
+      .weapon-slot {
+        padding: 8px 15px;
+        background: rgba(0, 0, 0, 0.6);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 5px;
+        color: white;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      
+      .weapon-slot.active {
+        border-color: #ff6600;
+        background: rgba(255, 102, 0, 0.3);
+      }
+      
+      .weapon-slot .key {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-weight: bold;
+      }
+      
+      @keyframes pulse {
+        0% { transform: translate(-50%, -50%) scale(1.5); opacity: 0.5; }
+        50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+        100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      }
+      
+      #countdown {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 120px;
+        font-weight: bold;
+        color: #ff6600;
+        text-shadow: 4px 4px 8px rgba(0,0,0,0.8);
+        z-index: 300;
+        animation: pulse 1s ease-in-out;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container"></div>
+    
+    <div id="crosshair"></div>
+    
+    <div id="hud">
+      <div id="health-bar">
+        <div id="health-fill"></div>
+      </div>
+      <div id="ammo">30 / 90</div>
+    </div>
+    
+    <div id="minimap">
+      <canvas id="minimap-canvas"></canvas>
+    </div>
+    
+    <div id="weapon-slots">
+      <div class="weapon-slot active">
+        <span class="key">1</span>
+        <span>M7 Rifle</span>
+      </div>
+      <div class="weapon-slot">
+        <span class="key">2</span>
+        <span>Pistol</span>
+      </div>
+      <div class="weapon-slot">
+        <span class="key">3</span>
+        <span>Knife</span>
+      </div>
+    </div>
+    
+    <div id="weapon-info">
+      <div class="weapon-name">M7 Rifle</div>
+      <div class="damage-info">伤害: 36</div>
+      <div>射速: 600 RPM</div>
+    </div>
+    
+    <div id="instructions">
+      <h1>Programmer Akai's FPS Game</h1>
+      <p>点击屏幕开始游戏</p>
+      <div class="controls">
+        <p>WASD - 移动</p>
+        <p>鼠标 - 瞄准</p>
+        <p>左键 - 射击</p>
+        <p>R - 换弹</p>
+        <p>Shift - 冲刺</p>
+        <p>空格 - 跳跃</p>
+        <p>1 - 步枪</p>
+        <p>2 - 手枪</p>
+        <p>3 - 小刀</p>
+        <p>5 - 开挂</p>
+        <p>ESC - 暂停</p>
+      </div>
+      <p style="margin-top: 20px; color: #ff6600;">每轮击杀指定数量的敌人即可通关!</p>
+    </div>
+    
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
